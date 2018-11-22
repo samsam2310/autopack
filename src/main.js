@@ -18,10 +18,8 @@ mod.then(()=>{
 	console.log('Hi -----------------');
 	mod.C.add(a);
 	mod.C.add(a);
-	mod.C.printf(fmt, a);
-	console.log(a);
-	// const printf = mod._wasmModule.cwrap('printf_i32', 'number', ['string', 'number']);
-	// printf('Hello', 7122);
+	mod.C.add(a);
+	mod.C.add(a);
 	console.log('Bye ------------------');
 });
 

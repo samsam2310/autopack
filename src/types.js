@@ -3,12 +3,12 @@ class TypeObject {
    * Constructor
    * @param {string} ident
    * @param {number} size
-   * @param {Object} props - {name:{offset, type}...}
+   * @param {Object} prop - {name:{offset, type}...}
    */
-  constructor(ident, size, props) {
+  constructor(ident, size, prop) {
     this._ident = ident;
     this._size = size;
-    this._props = props;
+    this._props = prop;
   }
 
   ident() {
@@ -129,6 +129,24 @@ const createCStr = str => {
   return new cls(data);
 };
 
+
+class CStruct extends CMapObject {};
+
+const createStruct = (ident, propNames, propTypes, alignSize) => {
+  const cls = class extends CStruct {};
+  const prop = {};
+  let offset = 0;
+  for (let i = 0; i < propTypes.length; ++i) {
+    prop[propNames[i]] = { offset: offset, type: propTypes[i] };
+    offset += propTypes[i].size();
+    if (offset % alignSize != 0) {
+      offset += alignSize - offset % alignSize;
+    }
+  }
+  // size!?, end need pandding?
+  cls._type = new TypeObject(ident, offset, prop);
+};
+
 export {
   CMapObject,
   CBool,
@@ -144,5 +162,6 @@ export {
   CDouble,
   CArray,
   createArrayType,
-  createCStr
+  createCStr,
+  createStruct,
 };
