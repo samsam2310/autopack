@@ -44,15 +44,46 @@ std::map<string, string> type_map = {
     {"unsigned long long int", "u"}
 };
 
+std::map<string, string> js_type_map = {
+    {"short", "CShort"},
+    {"short int", "CShort"},
+    {"signed short", "CShort"},
+    {"signed short int", "CShort"},
+    {"unsigned short", "CUnsignedShort"},
+    {"unsigned short int", "CUnsignedShort"},
+    {"int", "CLong"},
+    {"signed", "CLong"},
+    {"signed int", "CLong"},
+    {"unsigned", "CUnsignedLong"},
+    {"unsigned int", "CUnsignedLong"},
+    {"long", "CLong"},
+    {"long int", "CLong"},
+    {"signed long", "CLong"},
+    {"signed long int", "CLong"},
+    {"unsigned long", "CUnsignedLong"},
+    {"unsigned long int", "CUnsignedLong"},
+    {"long long", "CLongLong"},
+    {"long long int", "CLongLong"},
+    {"signed long long", "CLongLong"},
+    {"signed long long int", "CLongLong"},
+    {"unsigned long long", "CUnsignedLongLong"},
+    {"unsigned long long int", "CUnsignedLongLong"}
+};
+
+std::map<string, int> js_func_exist;
+
 ofstream cpp_result;
 ofstream js_result;
+
+string js_hint = "";
+string js_content = "";
 
 class FuncPrinter : public MatchFinder::MatchCallback {
 public:
     virtual void run(const MatchFinder::MatchResult &Result) {
         const FunctionDecl* funcDecl = Result.Nodes.getNodeAs<clang::FunctionDecl>("func");
         FunctionDecl::param_const_iterator it;
-        //funcDecl->dump();
+        funcDecl->dump();
         std::cerr<<"Name: "<<funcDecl->getNameInfo().getName().getAsString()<<"\n";
         std::cerr<<"Type: "<<funcDecl->getCallResultType().getAsString()<<"\n";
         std::cerr<<"\n";
@@ -82,6 +113,36 @@ private:
         output_stream<<funcDecl->getCallResultType().getAsString()<<" "
             <<funcDecl->getNameInfo().getName().getAsString();
 
+        js_hint += "_" + funcDecl->getNameInfo().getName().getAsString();
+        std::map<string, string>::iterator iter;
+        iter = type_map.find(funcDecl->getCallResultType().getAsString());
+        if(iter != type_map.end()) {
+            uint64_t type_size = funcDecl->getASTContext().getTypeInfo(funcDecl->getCallResultType()).Width;
+            js_hint += "_" + iter->second + std::to_string(type_size);
+        }
+        else {
+        }
+        js_hint += ": [[";
+
+        std::map<string,int>::iterator func_iter;
+        func_iter = js_func_exist.find(funcDecl->getNameInfo().getName().getAsString());
+        if(func_iter == js_func_exist.end()) {
+            js_content += "C." + funcDecl->getNameInfo().getName().getAsString() + " = (...args) => {\n";
+            js_content += "const ident = getCFuncIdent(wasmModule, '_" +
+                funcDecl->getNameInfo().getName().getAsString() + "', ...args);\n";
+            js_content += "const hint = hints[ident];\n"
+                          "return callCFunction(\n"
+                          "wasmModule,\n"
+                          "hint[0],\n"
+                          "ident,\n"
+                          "hint[1],\n"
+                          "hint[2],\n"
+                          "...args\n"
+                          ");\n"
+                          "};\n";
+            js_func_exist[funcDecl->getNameInfo().getName().getAsString()] = 1;
+        }
+
         for(it=funcDecl->param_begin();it!=funcDecl->param_end();it++) {
             string argument_type = (*it)->getOriginalType().getAsString();
             
@@ -100,6 +161,7 @@ private:
         vector<int> star_count;
         for(it=funcDecl->param_begin();it!=funcDecl->param_end();it++, serial_num++) {
             int count = 1;
+            int is_reference = 0;
             int i;
             if(serial_num) {
                 output_stream<<", ";
@@ -116,14 +178,28 @@ private:
                     count++;
                     output_stream<<"*";
                 }
+                if(argument_type[i] == '&') {
+                    is_reference = 1;
+                }
             }
             star_count.push_back(count);
             output_stream<<"a"<<serial_num;
- 
-            
-        }
+
+            js_hint += std::to_string(is_reference) + ",";
+        }        
         output_stream<<") {\n";
         output_stream<<"\treturn "<<funcDecl->getNameInfo().getName().getAsString()<<"(";
+
+        js_hint += "], ";
+        iter = js_type_map.find(funcDecl->getCallResultType().getAsString());
+        if(iter != js_type_map.end()) {
+            js_hint += iter->second;
+        }
+        else {
+        }
+
+        js_hint += ", 0],\n";
+
         serial_num = 0;
         for(vector<int>::iterator v_iter=star_count.begin();
                 v_iter!=star_count.end();v_iter++, serial_num++) {
@@ -139,6 +215,7 @@ private:
         output_stream<<");\n";
         output_stream<<"}\n";
     }
+
 };
 
 void cppPreProcess() {
@@ -149,6 +226,25 @@ void cppPreProcess() {
 
 void cppPostProcess() {
     cpp_result<<"}\n";
+}
+
+void jsGenerate() {
+    js_result<<"import { CLong, CFloat, CDouble } from './types';\n"
+               "import { callCFunction, getCFuncIdent } from './wrap';\n"
+               "import { Module } from './module';\n";
+
+    js_result<<"class TestModule extends Module {\n"
+               "    initCMethod() {\n"
+               "        const wasmModule = this._wasmModule;\n"
+               "        const C = {};\n"
+               "        const hints = {\n";
+    js_result<<js_hint;
+    js_result<<"        };\n";
+    js_result<<js_content;
+    js_result<<"        this.C = C;\n"
+               "    }\n"
+               "}\n"
+               "export { TestModule };";
 }
 
 int main(int argc, const char **argv) {
@@ -166,6 +262,9 @@ int main(int argc, const char **argv) {
     int result = Tool.run(newFrontendActionFactory(&finder).get());
     cppPostProcess();
     cpp_result.close();
+
+    js_result.open("result.js");
+    jsGenerate();
     return result;
 }
 
