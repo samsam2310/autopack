@@ -10,7 +10,7 @@ const mod = new TestModule(Module, {
   }
 });
 
-const fmt = createCStr('Hello, %d\n');
+const fmt = createCStr('Hello, %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n');
 console.log(fmt);
 const a = new CLong;
 
@@ -20,6 +20,7 @@ mod.then(()=>{
 	mod.C.add(a);
 	mod.C.add(a);
 	mod.C.add(a);
+	mod.C.printf(fmt, a);
 	console.log('Bye ------------------');
 });
 

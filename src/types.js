@@ -51,9 +51,9 @@ class CMapObject {
     }
   }
 
-  readToMem(wasmModule) {
+  readToMem(wasmModule, addr = null) {
     const len = this.type().size();
-    const addr = wasmModule['_malloc'](len);
+    addr = addr || wasmModule['_malloc'](len);
     const mem = wasmModule.HEAP8;
     this.constructor._memCopy(this._data, 0, mem, addr, len);
     return addr;

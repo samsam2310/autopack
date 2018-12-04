@@ -5,7 +5,7 @@ all: data/zbar.js
 debug: src/test.cpp
 	em++ -g2 -s WASM=1 -Wc++11-extensions -o build/bundle/wasm.js \
 		src/test.cpp \
-		-s EXTRA_EXPORTED_RUNTIME_METHODS='["cwrap"]' \
+		-s EXTRA_EXPORTED_RUNTIME_METHODS='["cwrap","stackSave","stackRestore","stackAlloc"]' \
 		-s "BINARYEN_METHOD='native-wasm'" \
 		-s ALLOW_MEMORY_GROWTH=1 \
 		-s MODULARIZE=1 \
