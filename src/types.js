@@ -1,14 +1,16 @@
+import { callCFunction, getCFuncIdent } from './wrap';
+
 class TypeObject {
   /**
    * Constructor
    * @param {string} ident
    * @param {number} size
-   * @param {Object} prop - {name:{offset, type}...}
+   * @param {Object} fields - {name:{offset, type}...}
    */
-  constructor(ident, size, prop) {
+  constructor(ident, size, fields) {
     this._ident = ident;
     this._size = size;
-    this._props = prop;
+    this._fields = fields;
   }
 
   ident() {
@@ -19,8 +21,8 @@ class TypeObject {
     return this._size;
   }
 
-  props() {
-    return this._props;
+  fields() {
+    return this._fields;
   }
 }
 
@@ -129,22 +131,54 @@ const createCStr = str => {
   return new cls(data);
 };
 
-
-class CStruct extends CMapObject {};
-
-const createStruct = (ident, propNames, propTypes, alignSize) => {
-  const cls = class extends CStruct {};
-  const prop = {};
-  let offset = 0;
-  for (let i = 0; i < propTypes.length; ++i) {
-    prop[propNames[i]] = { offset: offset, type: propTypes[i] };
-    offset += propTypes[i].size();
-    if (offset % alignSize != 0) {
-      offset += alignSize - offset % alignSize;
+class CStruct extends CMapObject {
+  constructor(...args) {
+    if (args[0] instanceof Int8Array) {
+      super(args[0]);
+      return;
     }
+    if (args.some(arg => !(arg instanceof CMapObject))) {
+      console.log(args);
+      throw new Error('Wrong argument type');
+    }
+    super();
+    const ident = getCFuncIdent(
+      this.constructor._wasmModule, '_construct_' + this.constructor._type.ident(), args);
+    const hint = this.constructor._hints[ident];
+    args.unshift(this);
+    console.log('constr : ' + ident);
+    callCFunction(this.constructor._wasmModule,
+                  hint[0],
+                  ident,
+                  hint[1],
+                  hint[2],
+                  args);
+  }
+};
+
+const getFieldFromStruct = (obj, ident) => {
+  const field = obj.constructor._type.fields()[ident];
+  const typeMapping = field.type;
+  const data = new Int8Array(obj._data.buffer, field.offset, typeMapping._type.size());
+  return new typeMapping(data);
+}
+
+const createStruct = (ident, fields, size, superClass, wasmModule, hints) => {
+  const cls = superClass ? class extends superClass {} : class extends CStruct {};
+  const defineField = (cls, fname) => {
+    cls.prototype.__defineGetter__(fname, function() {
+      return getFieldFromStruct(this, fname);
+    });
+  };
+  for (let fname in fields) {
+    defineField(cls, fname);
   }
   // size!?, end need pandding?
-  cls._type = new TypeObject(ident, offset, prop);
+  cls._type = new TypeObject(ident, size, fields);
+  cls._wasmModule = wasmModule;
+  // unuse ?
+  cls._hints = hints;
+  return cls;
 };
 
 export {

@@ -75,6 +75,7 @@ const callCFunction = (
   // assert(func, 'Function not found: ' + ident);
   const cArgs = genCArgs(wasmModule, args);
   const retAddr = func.apply(null, cArgs);
+  console.log("GG: "+ retAddr);
   const ret = genReturnValue(wasmModule, retAddr, returnTypeClass, isReturnRef);
   doWriteBack(wasmModule, args, cArgs, writeBackHints);
   return ret;
