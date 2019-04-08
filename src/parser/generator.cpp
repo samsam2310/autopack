@@ -29,14 +29,23 @@ void ParserHandler::setContext(ASTContext &context) {
 }
 
 void ParserHandler::run(const MatchFinder::MatchResult &result) {
-    //TODO-
+    if(const FunctionDecl *funcDecl = result.Nodes.getNodeAs<FunctionDecl>("funcDecl")) {
+        std::cout<<"function decl!\n";
+        funcDecl->dump();
+    }
+    else if(const CXXRecordDecl *recordDecl = result.Nodes.getNodeAs<CXXRecordDecl>("recordDecl")) {
+        std::cout<<"record decl!\n";
+        recordDecl->dump();
+    }
 }
 
 ParserASTConsumer::ParserASTConsumer(CompilerInstance &Instance) : handlerForMatchResult(Instance) {
-    //TODO- matcher.addMatcher()
+    matcher.addMatcher(functionDecl().bind("funcDecl"), &handlerForMatchResult);
+    matcher.addMatcher(cxxRecordDecl().bind("recordDecl"), &handlerForMatchResult);
 }
 
-void ParserASTConsumer::HandleTransitionUnit(ASTContext &context) {
+void ParserASTConsumer::HandleTranslationUnit(ASTContext &context) {
+    std::cout<<"translation\n";
     handlerForMatchResult.setContext(context);
     matcher.matchAST(context);
 }

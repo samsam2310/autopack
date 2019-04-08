@@ -13,6 +13,9 @@ using namespace clang::ast_matchers;
 using namespace std;
 using namespace llvm;
 
+#ifndef GENERATOR_H
+#define GENERATOR_H
+
 class ParserHandler : public MatchFinder::MatchCallback {
 private:
     CompilerInstance &Instance;
@@ -35,7 +38,7 @@ private:
     MatchFinder matcher;
     ParserHandler handlerForMatchResult;
 
-    void HandleTransitionUnit(ASTContext &context);
+    void HandleTranslationUnit(ASTContext &context);
 };
 
 class ParserAction : public clang::ASTFrontendAction {
@@ -50,3 +53,5 @@ public:
 
 
 void genParseResult(int argc, const char** argv, Config &config);
+
+#endif
