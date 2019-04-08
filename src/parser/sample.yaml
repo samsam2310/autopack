@@ -1,0 +1,9 @@
+export:
+- filename: "test.cpp"
+  functions:
+  - name: func_name1
+    input_types: # input argument type, optional
+    - int
+    - float
+  - name: function_name2
+    input_types: # other input type

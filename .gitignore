@@ -63,3 +63,10 @@ typings/
 
 # next.js build output
 .next
+
+# g++ .o file
+*.o
+*.out
+
+# vim swp file
+*.swp
