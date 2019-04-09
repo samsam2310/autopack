@@ -1,26 +1,16 @@
-int aa;
+struct st{
+    char a;
+    virtual int v_a() {return 1;}
+    int i_a;
+    float z() {return 0;}
+    int zz() {return 1;}
+};
 
-double test(int, float);
+int a() {
+    return 5;
+}
 
 int main() {
-    test(1, 1.2);
+    
     return 0;
-}
-
-double test(int a, float b) {
-    double c ;
-    return c;
-}
-
-int test_1(int a) {
-    return aa;
-}
-
-double test_1() {
-    return 1;
-}
-
-
-signed short int test_2(int a, ...) {
-    return a;
 }
