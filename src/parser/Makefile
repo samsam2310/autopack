@@ -1,13 +1,15 @@
 LLVM_CXXCONFIGS= $(shell llvm-config --cxxflags)
 LLVMLDFLAGS= $(shell llvm-config --ldflags --libs --system-libs)
 
+OBJS = main.cpp config.o generator.o result.o
+
 .PHONY: test
-test: main.cpp config.o generator.o
+test: $(OBJS)
 	g++ \
 		$(LLVM_CXXCONFIGS) \
 		$(LLVMLDFLAGS) \
 		-o main.out \
-		main.cpp config.o generator.o \
+		$(OBJS) \
 		-fexceptions \
 		-lyaml-cpp \
 		-lclangTooling \
@@ -65,8 +67,11 @@ all: test1.cpp config.o
 config.o: config.h config.cpp
 	g++ -c config.cpp
 
-generator.o: generator.h generator.cpp
+generator.o: generator.h generator.cpp utils.h
 	g++ -c generator.cpp
+
+result.o: result.h result.cpp
+	g++ -c result.cpp
 
 clean:
 	rm -rf *.out *.o
