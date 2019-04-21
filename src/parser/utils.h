@@ -8,6 +8,43 @@ class ExportType {
 public:
     const static std::map<std::string, std::string> c_type_map;
     const static std::map<std::string, std::string> js_type_map;
+    // <origin <c_type, js_type>>
+    const static std::map<std::string, std::pair<std::string, std::string>> type_map;
+    static std::map<std::string, std::pair<std::string, std::string>> create_type_map() {
+        std::map<std::string, std::pair<std::string, std::string>> t_map = {
+            {"short", {"i", "CShort"}},
+            {"short int", {"i", "CShort"}},
+            {"signed short", {"i", "CShort"}},
+            {"signed short int", {"i", "CShort"}},
+            {"unsigned short", {"u", "CUnsignedShort"}},
+            {"unsigned short int", {"u", "CUnsignedShort"}},
+            {"int", {"i", "CLong"}},
+            {"signed", {"i", "CLong"}},
+            {"signed int", {"i", "CLong"}},
+            {"unsigned", {"u", "CUnsignedLong"}},
+            {"unsigned int", {"u", "CUnsignedLong"}},
+            {"long", {"i", "CLong"}},
+            {"long int", {"i", "CLong"}},
+            {"signed long", {"i", "CLong"}},
+            {"signed long int", {"i", "CLong"}},
+            {"unsigned long", {"u", "CUnsignedLong"}},
+            {"unsigned long int", {"u", "CUnsignedLong"}},
+            {"long long", {"i", "CLongLong"}},
+            {"long long int", {"i", "CLongLong"}},
+            {"signed long long", {"i", "CLongLong"}},
+            {"signed long long int", {"i", "CLongLong"}},
+            {"unsigned long long", {"u", "CUnsignedLongLong"}},
+            {"unsigned long long int", {"u", "CUnsignedLongLong"}},
+            {"float", {"f", "CFloat"}},
+            {"double", {"f", "CDouble"}},
+            {"long double", {"f", "CDouble"}},
+            {"bool", {"b", "CBool"}},
+            {"signed char", {"i", "CChar"}},
+            {"unsigned char", {"i", "CChar"}},
+            {"char", {"i", "CChar"}}
+        };
+        return t_map;
+    };
     static std::map<std::string, std::string> create_c_map() {
         std::map<std::string, std::string> c_map = {
             {"short", "i"},
@@ -83,11 +120,34 @@ const std::map<std::string, std::string> ExportType::c_type_map =
     ExportType::create_c_map();
 const std::map<std::string, std::string> ExportType::js_type_map =
     ExportType::create_js_map();
+const std::map<std::string, std::pair<std::string, std::string>> ExportType::type_map =
+    ExportType::create_type_map();
 
 class TemplateSet {
 public:
+    const static std::string js_output;
     const static std::string js_pure_function_entity;
 };
+
+const std::string TemplateSet::js_output = R"(
+import { CLong, CFloat, CDouble, createStruct, CUnsignedLong } from './types';
+import { callCFunction, getCFuncIdent } from './wrap';
+import { Module } from './module';
+
+class TestModule extends Module {
+  initCMethod() {
+    const wasmModule = this._wasmModule;
+    const C = {};
+    const hint = {
+%s
+    };
+%s
+
+    this.C = C;
+  }
+}
+export { TestModule };
+)";
 
 const std::string TemplateSet::js_pure_function_entity = R"(
     C.%s = (...args) => {

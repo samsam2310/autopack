@@ -11,7 +11,8 @@ void genParseResult(int argc, const char** argv, Config &config);
 class Generator {
 public:
     std::vector<ExportUnit> all_unit;
-    void genParseResult(Config &config);
+    void getParseData(Config &config);
+    void genJsFile(std::string &source_name);
 };
 
 #endif
