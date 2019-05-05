@@ -9,7 +9,7 @@ class ArgumentData {
 public:
     std::string js_type;
     std::string c_type;
-    std::string original_type;
+    std::string original_type = "void";
     bool is_referenced = false;
     int pointer_count=0;
     friend std::ostream& operator<<(std::ostream& os, const ArgumentData &data) {

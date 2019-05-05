@@ -186,7 +186,6 @@ void ParserHandler::handleFunctionDecl(const FunctionDecl* funcDecl) {
     FunctionUnit unit;
     unit.function_name = funcDecl->getNameInfo().getName().getAsString(); 
     handle_argument(unit.return_data, funcDecl->getCallResultType());
-    
     for(auto it=funcDecl->param_begin();it!=funcDecl->param_end();it++) {
         ArgumentData cur_argument;
         handle_argument(cur_argument, (*it)->getType());
@@ -237,6 +236,7 @@ void Generator::genArgString(
         std::string &arg_refer,
         std::string &c_define_args,
         std::string &c_call_args,
+        std::string &c_return_type,
         FunctionUnit &function_data) {
     int var_index = 0;
     name += function_data.function_name;
@@ -261,6 +261,12 @@ void Generator::genArgString(
             c_call_args += ",";
         }
     }
+    if(function_data.return_data.original_type != "void") {
+        c_return_type = "char*";
+    }
+    else {
+        c_return_type = "void";
+    }
 }
 
 void Generator::genClassEntity(std::string &js_hint_str, std::string &js_entity_str,
@@ -274,17 +280,37 @@ void Generator::genClassEntity(std::string &js_hint_str, std::string &js_entity_
             std::string arg_refer = "";
             std::string c_define_args = "";
             std::string c_call_args = "";
-            genArgString(name, arg_refer, c_define_args, c_call_args, method_iter->func_data);
+            std::string c_return_type = "";
+            genArgString(name, arg_refer, c_define_args, c_call_args,
+                c_return_type, method_iter->func_data);
+
+            //output example  obj_func(obj_type *obj [, c_define_args])
+            if(c_define_args != "") {
+                c_define_args = "," + c_define_args;
+            }
             if(method_iter->is_constructor) {
                 name = (boost::format("construct_%s%s") % class_iter->class_name % name).str();
                 class_constructor_entity += (boost::format("_%s: [[1,%s], null, 0],\n")
                     % name % arg_refer).str();
+
+                c_entity_str += (boost::format(TemplateSet::c_class_constructor_entity)
+                    % c_return_type % name % class_iter->class_name
+                    % c_define_args % class_iter->class_name % c_call_args).str();
             }
             else {
                 name = (boost::format("%s_") % class_iter->class_name).str() + name;
                 js_hint_str += (boost::format("_%s: [[1,%s], %s, %d],\n")
                     % name % arg_refer % method_iter->func_data.return_data.js_type
                     % method_iter->func_data.return_data.is_referenced).str();
+                js_entity_str += (boost::format(TemplateSet::js_class_method_entity)
+                    % class_iter->class_name % method_iter->func_data.function_name
+                    % name).str();
+
+
+                c_entity_str += (boost::format(TemplateSet::c_class_method_entity)
+                    % c_return_type % name % class_iter->class_name
+                    % c_define_args % method_iter->func_data.function_name
+                    % c_call_args).str();
             }
 
         }
@@ -315,7 +341,9 @@ void Generator::genResultFile(std::string &source_name) {
         std::string arg_refer = "";
         std::string c_define_args = "";
         std::string c_call_args = "";
-        genArgString(name, arg_refer, c_define_args, c_call_args, *unit_iter);
+        std::string c_return_type = "";
+        genArgString(name, arg_refer, c_define_args, c_call_args, c_return_type, *unit_iter);
+
         js_hint_str += (boost::format("_%s: [[%s], %s, %d],\n") 
             % name % arg_refer % unit_iter->return_data.js_type
             % unit_iter->return_data.is_referenced).str();
@@ -324,11 +352,10 @@ void Generator::genResultFile(std::string &source_name) {
             % unit_iter->function_name % unit_iter->function_name).str();
 
 
-        std::string c_return_type = "";
-        c_return_type += unit_iter->return_data.original_type;
+        /*c_return_type += unit_iter->return_data.original_type;
         for(int i=0;i<unit_iter->return_data.pointer_count;i++) {
             c_return_type += "*";
-        }
+        }*/
         c_entity_str += (boost::format(TemplateSet::c_pure_function_entity)
             % c_return_type % name % c_define_args % unit_iter->function_name % c_call_args).str();
 

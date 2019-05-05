@@ -128,8 +128,11 @@ public:
     const static std::string js_output;
     const static std::string js_pure_function_entity;
     const static std::string js_class_entity;
+    const static std::string js_class_method_entity;
     const static std::string c_output;
     const static std::string c_pure_function_entity;
+    const static std::string c_class_method_entity;
+    const static std::string c_class_constructor_entity;
 };
 
 const std::string TemplateSet::js_output = R"(
@@ -176,6 +179,23 @@ const std::string TemplateSet::js_class_entity = R"(
     });
 )";
 
+const std::string TemplateSet::js_class_method_entity = R"(
+    C.%s.prototype.%s = function () {
+      const ident = getCFuncIdent(wasmModule, '_%s', arguments);
+      const hint = hints[ident];
+      const args = [this, ...arguments];
+      return callCFunction(
+        wasmModule,
+        hint[0],
+        ident,
+        hint[1],
+        hint[2],
+        args,
+        null
+      );
+    }
+)";
+
 const std::string TemplateSet::c_output = R"(
 #include <cstdio>
 #include <emscripten.h>
@@ -195,6 +215,22 @@ EMSCRIPTEN_KEEPALIVE
     auto r = %s(%s);
     memcpy(buf, &r, sizeof(r));
     return buf;
+}
+)";
+
+const std::string TemplateSet::c_class_method_entity = R"(
+EMSCRIPTEN_KEEPALIVE
+%s %s(%s *obj %s) {
+    auto r = obj->%s(%s);
+    memcpy(buf, &r, sizeof(r));
+    return buf;
+}
+)";
+
+const std::string TemplateSet::c_class_constructor_entity = R"(
+EMSCRIPTEN_KEEPALIVE
+%s %s(%s *obj %s) {
+    new (obj) %s(%s);
 }
 )";
 

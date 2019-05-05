@@ -4,7 +4,7 @@ struct st{
     char a;
     virtual int virtual_a() {return 1;}
     int i_a;
-    float func_z() {return 0;}
+    float func_z(int a) {return 0;}
     int func_zz() {return 1;}
 };
 

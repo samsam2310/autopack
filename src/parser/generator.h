@@ -18,7 +18,7 @@ private:
     void genClassEntity(std::string &js_hint_str, std::string &js_entity_str,
         std::string &c_entity_str);
     void genArgString(std::string &name, std::string &arg_refer, std::string &c_define_args,
-        std::string &c_call_args, FunctionUnit &function_data);
+        std::string &c_call_args, std::string &c_return_type, FunctionUnit &function_data);
 };
 
 #endif
