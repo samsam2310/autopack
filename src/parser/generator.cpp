@@ -79,8 +79,7 @@ void ParserHandler::run(const MatchFinder::MatchResult &result) {
         handleFunctionDecl(funcDecl);
     }
     else if(const CXXRecordDecl *recordDecl = result.Nodes.getNodeAs<CXXRecordDecl>("recordDecl")) {
-        std::cout<<"record decl!\n";
-        recordDecl->dump();
+        handleCXXRecordDecl(recordDecl);
     }
 }
 
@@ -115,6 +114,64 @@ void ParserHandler::handle_argument(ArgumentData &data, QualType arg) {
     }
 }
 
+void ParserHandler::handleCXXRecordDecl(const CXXRecordDecl *recordDecl) {
+    std::cerr<<"==record decl==\n";
+    if(!(
+        recordDecl->hasDefinition() &&
+        !recordDecl->isCXXClassMember())) {
+        std::cerr<<"==skipped==\n";
+        return;
+    }
+    recordDecl->dump();
+    const clang::ASTRecordLayout& layout(context->getASTRecordLayout(recordDecl));
+    ClassUnit class_data;
+    class_data.class_name = recordDecl->getName().str();
+    class_data.size = layout.getSize().getQuantity();
+    for(auto it=recordDecl->field_begin();it!=recordDecl->field_end();it++) {
+        FieldUnit field_data;
+        unsigned field_index = (*it)->getFieldIndex();
+        handle_argument(field_data.arg_data, (*it)->getType());
+        field_data.offset = layout.getFieldOffset(field_index)/8;
+        field_data.name = (*it)->getName().str();
+        class_data.fields.push_back(field_data);
+    }
+    for(auto it=recordDecl->method_begin();it!=recordDecl->method_end();it++) {
+        if(!(
+            !(*it)->isTrivial() &&
+            !isa<CXXConstructorDecl>(*it) &&
+            !(*it)->isDefaulted())) {
+            continue;
+        }
+        std::cerr<<(*it)->getNameInfo().getName().getAsString()<<"\n";
+        MethodUnit method_data;
+        method_data.func_data.function_name = (*it)->getNameInfo().getName().getAsString();
+        handle_argument(method_data.func_data.return_data, (*it)->getCallResultType());
+        for(auto arg_it=(*it)->param_begin();arg_it!=(*it)->param_end();arg_it++) {
+            ArgumentData arg_data;
+            handle_argument(arg_data, (*arg_it)->getType());
+            method_data.func_data.argument.push_back(arg_data);
+        }
+
+        class_data.methods.push_back(method_data);
+    }
+    std::cerr<<"constructor\n";
+    for(auto it=recordDecl->ctor_begin();it!=recordDecl->ctor_end();it++) {
+        std::cerr<<(*it)->getNameInfo().getName().getAsString()<<"\n";
+        MethodUnit method_data;
+        method_data.is_constructor = true;
+        for(auto arg_it=(*it)->param_begin();arg_it!=(*it)->param_end();arg_it++) {
+            ArgumentData arg_data;
+            handle_argument(arg_data, (*arg_it)->getType());
+            method_data.func_data.argument.push_back(arg_data);
+        }
+
+        class_data.methods.push_back(method_data);
+    }
+    _generator.class_units.push_back(class_data);
+
+    
+}
+
 void ParserHandler::handleFunctionDecl(const FunctionDecl* funcDecl) {
     std::cerr<<"==func decl==\n";
     if(!(
@@ -126,7 +183,7 @@ void ParserHandler::handleFunctionDecl(const FunctionDecl* funcDecl) {
     }
     funcDecl->dump();
 
-    ExportUnit unit;
+    FunctionUnit unit;
     unit.function_name = funcDecl->getNameInfo().getName().getAsString(); 
     handle_argument(unit.return_data, funcDecl->getCallResultType());
     
@@ -137,7 +194,7 @@ void ParserHandler::handleFunctionDecl(const FunctionDecl* funcDecl) {
     }
     
     
-    _generator.all_unit.push_back(unit);
+    _generator.function_units.push_back(unit);
 }
 
 ParserASTConsumer::ParserASTConsumer(CompilerInstance &Instance, Generator &generator) :
@@ -175,33 +232,110 @@ void Generator::getParseData(Config &config) {
     clang::tooling::runToolOnCodeWithArgs(action, code_str, args);
 }
 
-void Generator::genJsFile(std::string &source_name) {
-    std::string output_filename = "output/" + source_name + ".js";
-    ofstream fs(output_filename);
+void Generator::genArgString(
+        std::string &name,
+        std::string &arg_refer,
+        std::string &c_define_args,
+        std::string &c_call_args,
+        FunctionUnit &function_data) {
+    int var_index = 0;
+    name += function_data.function_name;
+    for(auto arg_iter=function_data.argument.begin();
+            arg_iter!=function_data.argument.end();
+            arg_iter++, var_index++) {
+        name += "_";
+        if(arg_iter->pointer_count) {
+            name += std::to_string(arg_iter->pointer_count);
+        }
+        name += arg_iter->c_type;
+        arg_refer += (boost::format("%d,") % arg_iter->is_referenced).str();
 
-    std::string hint_str = "";
-    std::string entity_str = "";
-    for(auto unit_iter=all_unit.begin();unit_iter!=all_unit.end();unit_iter++) {
+        c_define_args += arg_iter->original_type;
+        for(int i=0;i<=arg_iter->pointer_count;i++) {
+            c_define_args += "*";
+        }
+        c_define_args += "a"+to_string(var_index);
+        c_call_args += "*a" + to_string(var_index);
+        if(arg_iter+1!=function_data.argument.end()) {
+            c_define_args += ",";
+            c_call_args += ",";
+        }
+    }
+}
+
+void Generator::genClassEntity(std::string &js_hint_str, std::string &js_entity_str,
+        std::string &c_entity_str) {
+    for(auto class_iter=class_units.begin();class_iter!=class_units.end();class_iter++) {
+        std::string class_constructor_entity = "";
+        std::string class_field_entity = "";
+        for(auto method_iter=class_iter->methods.begin();
+                method_iter!=class_iter->methods.end();method_iter++) {
+            std::string name = "";
+            std::string arg_refer = "";
+            std::string c_define_args = "";
+            std::string c_call_args = "";
+            genArgString(name, arg_refer, c_define_args, c_call_args, method_iter->func_data);
+            if(method_iter->is_constructor) {
+                name = (boost::format("construct_%s%s") % class_iter->class_name % name).str();
+                class_constructor_entity += (boost::format("_%s: [[1,%s], null, 0],\n")
+                    % name % arg_refer).str();
+            }
+            else {
+                name = (boost::format("%s_") % class_iter->class_name).str() + name;
+                js_hint_str += (boost::format("_%s: [[1,%s], %s, %d],\n")
+                    % name % arg_refer % method_iter->func_data.return_data.js_type
+                    % method_iter->func_data.return_data.is_referenced).str();
+            }
+
+        }
+        for(auto field_iter=class_iter->fields.begin();
+                field_iter!=class_iter->fields.end();field_iter++) {
+            class_field_entity += (boost::format("'%s':{type:%s,offset:%d},\n")
+                % field_iter->name % field_iter->arg_data.js_type % field_iter->offset).str();
+        }
+        js_entity_str += (boost::format(TemplateSet::js_class_entity)
+            % class_iter->class_name % class_iter->class_name
+            % class_field_entity % class_iter->size % class_constructor_entity).str();
+    } 
+
+}
+
+void Generator::genResultFile(std::string &source_name) {
+    std::string js_output_filename = "output/" + source_name + ".js";
+    std::string c_output_filename = "output/" + source_name + ".cpp";
+    ofstream js_fs(js_output_filename);
+    ofstream c_fs(c_output_filename);
+    
+
+    std::string js_hint_str = "";
+    std::string js_entity_str = "";
+    std::string c_entity_str = "";
+    for(auto unit_iter=function_units.begin();unit_iter!=function_units.end();unit_iter++) {
         std::string name = "";
         std::string arg_refer = "";
-        name += (boost::format("_%s") % unit_iter->function_name).str();
-        for(auto arg_iter=unit_iter->argument.begin();
-                arg_iter!=unit_iter->argument.end();arg_iter++) {
-            name += "_";
-            if(arg_iter->pointer_count) {
-                name += std::to_string(arg_iter->pointer_count);
-            }
-            name += arg_iter->js_type;
-            arg_refer += (boost::format("%d,") % arg_iter->is_referenced).str();
-        }
-        hint_str += (boost::format("%s: [[%s], %s, %d],\n") 
+        std::string c_define_args = "";
+        std::string c_call_args = "";
+        genArgString(name, arg_refer, c_define_args, c_call_args, *unit_iter);
+        js_hint_str += (boost::format("_%s: [[%s], %s, %d],\n") 
             % name % arg_refer % unit_iter->return_data.js_type
             % unit_iter->return_data.is_referenced).str();
 
-        entity_str += (boost::format(TemplateSet::js_pure_function_entity)
+        js_entity_str += (boost::format(TemplateSet::js_pure_function_entity)
             % unit_iter->function_name % unit_iter->function_name).str();
 
+
+        std::string c_return_type = "";
+        c_return_type += unit_iter->return_data.original_type;
+        for(int i=0;i<unit_iter->return_data.pointer_count;i++) {
+            c_return_type += "*";
+        }
+        c_entity_str += (boost::format(TemplateSet::c_pure_function_entity)
+            % c_return_type % name % c_define_args % unit_iter->function_name % c_call_args).str();
+
     }
-    fs<<boost::format(TemplateSet::js_output) % hint_str % entity_str;
-    fs.close();
+    genClassEntity(js_hint_str, js_entity_str, c_entity_str);
+    js_fs<<boost::format(TemplateSet::js_output) % js_hint_str % js_entity_str;
+    c_fs<<boost::format(TemplateSet::c_output) % c_entity_str;
+    js_fs.close();
+    c_fs.close();
 }

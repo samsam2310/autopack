@@ -24,30 +24,12 @@ public:
     }
 };
 
-class ExportUnit {
-private:
-
-    class JSResultData {
-    public:
-        std::string name;
-    };
-
-    class CPPResultData {
-    public:
-        std::string return_type;
-        std::string function_name;
-        std::string entity;
-    };
+class FunctionUnit {
 public:
-    JSResultData js_data;
-    CPPResultData cpp_data;
     ArgumentData return_data;
     std::vector<ArgumentData> argument;
     std::string function_name;
-    void printdata() {
-        std::cout<<js_data.name<<"\n";
-    }
-    friend std::ostream& operator<<(std::ostream &os, const ExportUnit &data) {
+    friend std::ostream& operator<<(std::ostream &os, const FunctionUnit &data) {
         os<<"name: "<<data.function_name<<"\n";
         os<<"return data\n"<<data.return_data;
         os<<"args\n";
@@ -56,6 +38,31 @@ public:
         }
         return os;
     }
+};
+
+class FieldUnit {
+public:
+    ArgumentData arg_data;
+    std::string name;
+    int offset;
+    bool is_self = false;
+    // other info
+};
+
+class MethodUnit {
+public:
+    FunctionUnit func_data;
+    bool is_constructor = false;
+};
+
+class ClassUnit {
+public:
+    int size;
+    std::string class_name;
+    std::vector<FieldUnit> fields;
+    std::vector<MethodUnit> methods;
+    
+    
 };
 
 #endif

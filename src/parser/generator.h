@@ -10,9 +10,15 @@ void genParseResult(int argc, const char** argv, Config &config);
 
 class Generator {
 public:
-    std::vector<ExportUnit> all_unit;
+    std::vector<FunctionUnit> function_units;
+    std::vector<ClassUnit> class_units;
     void getParseData(Config &config);
-    void genJsFile(std::string &source_name);
+    void genResultFile(std::string &source_name);
+private:
+    void genClassEntity(std::string &js_hint_str, std::string &js_entity_str,
+        std::string &c_entity_str);
+    void genArgString(std::string &name, std::string &arg_refer, std::string &c_define_args,
+        std::string &c_call_args, FunctionUnit &function_data);
 };
 
 #endif

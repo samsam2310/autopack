@@ -127,6 +127,9 @@ class TemplateSet {
 public:
     const static std::string js_output;
     const static std::string js_pure_function_entity;
+    const static std::string js_class_entity;
+    const static std::string c_output;
+    const static std::string c_pure_function_entity;
 };
 
 const std::string TemplateSet::js_output = R"(
@@ -163,6 +166,36 @@ const std::string TemplateSet::js_pure_function_entity = R"(
         null
       );
     };
+)";
+
+const std::string TemplateSet::js_class_entity = R"(
+    C.%s = createStruct('%s', {
+%s
+    }, %d, null, wasmModule, {
+%s
+    });
+)";
+
+const std::string TemplateSet::c_output = R"(
+#include <cstdio>
+#include <emscripten.h>
+#include <iostream>
+using namespace std;
+
+char buf[256];
+
+extern "C" {
+%s
+}
+)";
+
+const std::string TemplateSet::c_pure_function_entity = R"(
+EMSCRIPTEN_KEEPALIVE
+%s %s(%s) {
+    auto r = %s(%s);
+    memcpy(buf, &r, sizeof(r));
+    return buf;
+}
 )";
 
 #endif
