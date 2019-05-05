@@ -5,8 +5,10 @@
 
 int main(int argc, const char** argv) {
     std::vector<Config> output_config = parseConfig("sample.yaml");
+    Generator gen;
     for(auto it=output_config.begin();it!=output_config.end();it++) {
-        genParseResult(argc, argv, *it);
+        gen.getParseData(*it);
+        gen.genResultFile(it->filename);
     }
     return 0;
 }

@@ -1,12 +1,18 @@
 struct st{
+    st(int a) {} 
+    st() {}
     char a;
-    virtual int v_a() {return 1;}
+    virtual int virtual_a() {return 1;}
     int i_a;
-    float z() {return 0;}
-    int zz() {return 1;}
+    float func_z(int a) {return 0;}
+    int func_zz() {return 1;}
 };
 
-int a() {
+class Point {
+    long long int a;
+};
+
+int a(long long int zz, int *zzz, Point b, Point **&c, Point *d, Point **e) {
     return 5;
 }
 
